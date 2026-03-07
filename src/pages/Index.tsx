@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { Search, Leaf, Plus, Minus, ShoppingBag, X, CheckCircle2 } from "lucide-react";
+import { Search, Leaf, Plus, Minus, ShoppingBag, X, CheckCircle2, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,8 +52,8 @@ const CategoryNav = ({ categories, activeCategory, onSelect }: any) => (
 // ==========================================
 const CartDrawer = ({ open, onClose, cartItems, onAdd, onRemove, onPlaceOrder }: any) => {
   const [name, setName] = useState("");
-  const [showConfirm, setShowConfirm] = useState(false); // NEW STATE FOR CONFIRMATION
-  const [isProcessing, setIsProcessing] = useState(false); // To prevent double clicks while routing
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); 
 
   if (!open) return null;
   const total = cartItems.reduce((sum: number, i: any) => sum + (i.item.price * i.quantity), 0);
@@ -61,7 +61,6 @@ const CartDrawer = ({ open, onClose, cartItems, onAdd, onRemove, onPlaceOrder }:
   const handleFinalConfirm = async () => {
     setIsProcessing(true);
     await onPlaceOrder(name);
-    // Modal will close automatically via navigation in the parent, but we can reset state just in case
     setTimeout(() => {
       setIsProcessing(false);
       setShowConfirm(false);
@@ -72,7 +71,6 @@ const CartDrawer = ({ open, onClose, cartItems, onAdd, onRemove, onPlaceOrder }:
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={onClose} />
       
-      {/* 🚀 THE CONFIRMATION MODAL (Overlays the cart) */}
       <AnimatePresence>
         {showConfirm && (
           <motion.div 
@@ -154,7 +152,6 @@ const CartDrawer = ({ open, onClose, cartItems, onAdd, onRemove, onPlaceOrder }:
           <div className="pt-4 mt-auto">
             <input type="text" placeholder="Enter your name for the order" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold mb-4 outline-none focus:ring-2 ring-emerald-500 placeholder:text-slate-400 transition-all"/>
             
-            {/* CHANGED: Opens confirmation popup instead of placing order instantly */}
             <button 
               onClick={() => setShowConfirm(true)} 
               disabled={!name} 
@@ -229,45 +226,40 @@ export default function Index() {
   const [isVegOnlyMode, setIsVegOnlyMode] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  const [tapCount, setTapCount] = useState(0);
-  const tapTimeoutRef = useRef<NodeJS.Timeout>();
+  const [activeOrder, setActiveOrder] = useState<{ id: string; token: number; name: string } | null>(null);
 
   useEffect(() => {
-    const hasSeenSplash = sessionStorage.getItem("bhorium_splash_seen");
+    const hasSeenSplash = sessionStorage.getItem("bismuth_splash_seen");
     
     if (hasSeenSplash) {
       setShowSplash(false);
     } else {
       const timer = setTimeout(() => {
         setShowSplash(false);
-        sessionStorage.setItem("bhorium_splash_seen", "true");
+        sessionStorage.setItem("bismuth_splash_seen", "true");
       }, 2500);
       return () => clearTimeout(timer);
     }
   }, []);
 
-  const handleSecretTap = () => {
-    if (navigator.vibrate) navigator.vibrate(20);
-    setTapCount(prev => prev + 1);
-    if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
-    tapTimeoutRef.current = setTimeout(() => setTapCount(0), 1000); 
-  };
-
   useEffect(() => {
-    if (tapCount >= 3) {
-      setTapCount(0);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]); 
-      navigate('/admin'); 
-    }
-  }, [tapCount, navigate]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.shiftKey && e.key.toLowerCase() === 'a') navigate('/admin');
+    const checkActiveOrder = async () => {
+      const savedOrder = localStorage.getItem('bismuth_active_order');
+      if (savedOrder) {
+        const parsedOrder = JSON.parse(savedOrder);
+        
+        const { data } = await supabase.from('orders').select('status').eq('id', parsedOrder.id).single();
+        
+        if (data && (data.status === 'completed' || data.status === 'archived')) {
+          localStorage.removeItem('bismuth_active_order');
+          setActiveOrder(null);
+        } else if (data) {
+          setActiveOrder(parsedOrder);
+        }
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
+    checkActiveOrder();
+  }, []);
 
   useEffect(() => {
     fetchMenu();
@@ -304,7 +296,8 @@ export default function Index() {
     if (category === "All") window.scrollTo({ top: 0, behavior: 'smooth' });
     else {
       const element = document.getElementById(category);
-      if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 180, behavior: 'smooth' });
+      // Removed the 180px offset since the header is no longer sticky
+      if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 40, behavior: 'smooth' });
     }
   };
 
@@ -324,40 +317,45 @@ export default function Index() {
   };
 
   const handlePlaceOrder = async (customerName: string) => {
-  if (cartItems.length === 0) return;
+    if (cartItems.length === 0) return;
 
-  const finalToken = Math.floor(Math.random() * 900) + 100;
-  const totalAmount = cartItems.reduce((sum, i) => sum + (i.item.price * i.quantity), 0);
+    const finalToken = Math.floor(Math.random() * 900) + 100;
+    const totalAmount = cartItems.reduce((sum, i) => sum + (i.item.price * i.quantity), 0);
 
-  const { data, error } = await supabase.from('orders').insert([{
-      customer_name: customerName,
-      total_amount: totalAmount,
-      status: 'pending', 
-      token_number: finalToken,
-      order_items: cartItems.map(i => ({ 
-        item_id: i.item.id, 
-        item_name: i.item.name, 
-        quantity: i.quantity, 
-        price_at_time_of_order: i.item.price, 
-        is_veg: i.item.is_veg 
-      }))
-    }]).select().single();
+    const { data, error } = await supabase.from('orders').insert([{
+        customer_name: customerName,
+        total_amount: totalAmount,
+        status: 'pending', 
+        token_number: finalToken,
+        order_items: cartItems.map(i => ({ 
+          item_id: i.item.id, 
+          item_name: i.item.name, 
+          quantity: i.quantity, 
+          price_at_time_of_order: i.item.price, 
+          is_veg: i.item.is_veg 
+        }))
+      }]).select().single();
 
-  if (!error) {
-    setCartItems([]);
-    setIsCartOpen(false);
-    navigate('/order-success', { 
-      state: { 
-        orderId: data.id, 
-        customerName, 
-        totalAmount, 
-        tokenNumber: finalToken 
-      } 
-    });
-  } else {
-    toast({ title: "Order Failed", variant: "destructive" });
-  }
-};
+    if (!error) {
+      setCartItems([]);
+      setIsCartOpen(false);
+
+      const orderData = { id: data.id, token: finalToken, name: customerName };
+      localStorage.setItem('bismuth_active_order', JSON.stringify(orderData));
+      setActiveOrder(orderData);
+
+      navigate('/order-success', { 
+        state: { 
+          orderId: data.id, 
+          customerName, 
+          totalAmount, 
+          tokenNumber: finalToken 
+        } 
+      });
+    } else {
+      toast({ title: "Order Failed", variant: "destructive" });
+    }
+  };
 
   const getItemQuantity = (itemId: string) => cartItems.filter(i => i.item.id === itemId).reduce((sum, i) => sum + i.quantity, 0);
 
@@ -379,7 +377,7 @@ export default function Index() {
               transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
               className="text-center"
             >
-              <h1 className="text-5xl font-black tracking-tight mb-3">Bhorium</h1>
+              <h1 className="text-5xl font-black tracking-tight mb-3">Bismuth</h1>
               <p className="text-xs font-bold text-slate-400 tracking-[0.2em] uppercase">
                 Powered by Cravi'n
               </p>
@@ -390,11 +388,8 @@ export default function Index() {
 
       <div className="bg-slate-900 text-white p-6 pb-8 rounded-b-[2.5rem] shadow-2xl relative z-10 mt-[-1px]">
         <div className="flex justify-between items-center mb-6">
-          <h1 
-            onClick={handleSecretTap} 
-            className="text-3xl font-black tracking-tight pl-2 cursor-pointer select-none active:scale-95 transition-transform"
-          >
-            Bhorium
+          <h1 className="text-3xl font-black tracking-tight pl-2 select-none">
+            Bismuth
           </h1>
 
           <button 
@@ -425,12 +420,41 @@ export default function Index() {
         </div>
       </div>
 
-      {/* FIXED CATEGORY NAV */}
-      <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-md pt-4 shadow-sm border-b border-slate-200/60 -mt-2 mb-2"> 
+      {/* STATIC CATEGORY NAV (No longer follows you down) */}
+      <div className="bg-slate-50 pt-4 shadow-sm border-b border-slate-200/60 -mt-2 mb-2 relative z-10"> 
         <CategoryNav categories={categories} activeCategory={activeCategory} onSelect={handleCategoryClick} />
       </div>
 
       <div className="p-4 space-y-8 mt-2 min-h-[50vh]">
+        
+        {/* 🚀 THE NEW ACTIVE ORDER BANNER */}
+        <AnimatePresence>
+          {activeOrder && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20, height: 0 }} 
+              animate={{ opacity: 1, y: 0, height: 'auto' }} 
+              exit={{ opacity: 0, scale: 0.95, height: 0 }}
+              className="mb-4 bg-emerald-100 border border-emerald-200 rounded-[1.5rem] p-4 flex justify-between items-center shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-inner">
+                  #{activeOrder.token}
+                </div>
+                <div>
+                  <p className="font-black text-slate-900 leading-tight">Order in Progress</p>
+                  <p className="text-xs font-bold text-slate-500 mt-0.5">Kitchen is preparing it</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/order-success', { state: { orderId: activeOrder.id, tokenNumber: activeOrder.token, customerName: activeOrder.name } })}
+                className="bg-white px-4 py-3 rounded-xl text-xs font-black text-emerald-600 shadow-sm active:scale-95 border border-emerald-100 flex items-center gap-2 uppercase"
+              >
+                <Receipt className="w-4 h-4" /> STATUS
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {loading ? <MenuSkeleton /> : (
           <>
             {!loading && menuItems.length === 0 && (
