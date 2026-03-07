@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { Search, Leaf, Plus, Minus, ShoppingBag, X, CheckCircle2, Receipt } from "lucide-react";
+import { Search, Leaf, Plus, Minus, ShoppingBag, X, CheckCircle2, Receipt, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -226,7 +226,8 @@ export default function Index() {
   const [isVegOnlyMode, setIsVegOnlyMode] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  const [activeOrder, setActiveOrder] = useState<{ id: string; token: number; name: string } | null>(null);
+  // 🚀 UPDATE: Added total to the activeOrder state structure
+  const [activeOrder, setActiveOrder] = useState<{ id: string; token: number; name: string; total?: number } | null>(null);
 
   useEffect(() => {
     const hasSeenSplash = sessionStorage.getItem("bismuth_splash_seen");
@@ -296,7 +297,6 @@ export default function Index() {
     if (category === "All") window.scrollTo({ top: 0, behavior: 'smooth' });
     else {
       const element = document.getElementById(category);
-      // Removed the 180px offset since the header is no longer sticky
       if (element) window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 40, behavior: 'smooth' });
     }
   };
@@ -340,7 +340,8 @@ export default function Index() {
       setCartItems([]);
       setIsCartOpen(false);
 
-      const orderData = { id: data.id, token: finalToken, name: customerName };
+      // 🚀 UPDATE: Saving the totalAmount in memory
+      const orderData = { id: data.id, token: finalToken, name: customerName, total: totalAmount };
       localStorage.setItem('bismuth_active_order', JSON.stringify(orderData));
       setActiveOrder(orderData);
 
@@ -420,37 +421,45 @@ export default function Index() {
         </div>
       </div>
 
-      {/* STATIC CATEGORY NAV (No longer follows you down) */}
       <div className="bg-slate-50 pt-4 shadow-sm border-b border-slate-200/60 -mt-2 mb-2 relative z-10"> 
         <CategoryNav categories={categories} activeCategory={activeCategory} onSelect={handleCategoryClick} />
       </div>
 
       <div className="p-4 space-y-8 mt-2 min-h-[50vh]">
         
-        {/* 🚀 THE NEW ACTIVE ORDER BANNER */}
+        {/* 🚀 THE UPDATED ACTIVE ORDER BANNER (Total Cost + Instructions) */}
         <AnimatePresence>
           {activeOrder && (
             <motion.div 
               initial={{ opacity: 0, y: -20, height: 0 }} 
               animate={{ opacity: 1, y: 0, height: 'auto' }} 
               exit={{ opacity: 0, scale: 0.95, height: 0 }}
-              className="mb-4 bg-emerald-100 border border-emerald-200 rounded-[1.5rem] p-4 flex justify-between items-center shadow-sm"
+              className="mb-4 bg-emerald-100 border border-emerald-200 rounded-[1.5rem] p-4 flex flex-col gap-3 shadow-sm"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-inner">
-                  #{activeOrder.token}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-inner">
+                    #{activeOrder.token}
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-900 leading-tight">Order Received!</p>
+                    <p className="text-xs font-bold text-emerald-700 mt-0.5">Total: ₹{activeOrder.total || "--"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-black text-slate-900 leading-tight">Order in Progress</p>
-                  <p className="text-xs font-bold text-slate-500 mt-0.5">Kitchen is preparing it</p>
-                </div>
+                <button 
+                  onClick={() => navigate('/order-success', { state: { orderId: activeOrder.id, tokenNumber: activeOrder.token, customerName: activeOrder.name, totalAmount: activeOrder.total } })}
+                  className="bg-white px-4 py-3 rounded-xl text-xs font-black text-emerald-600 shadow-sm active:scale-95 border border-emerald-100 flex items-center gap-2 uppercase"
+                >
+                  <Receipt className="w-4 h-4" /> STATUS
+                </button>
               </div>
-              <button 
-                onClick={() => navigate('/order-success', { state: { orderId: activeOrder.id, tokenNumber: activeOrder.token, customerName: activeOrder.name } })}
-                className="bg-white px-4 py-3 rounded-xl text-xs font-black text-emerald-600 shadow-sm active:scale-95 border border-emerald-100 flex items-center gap-2 uppercase"
-              >
-                <Receipt className="w-4 h-4" /> STATUS
-              </button>
+              
+              <div className="bg-white/60 p-3 rounded-xl flex gap-2 items-start border border-emerald-50">
+                 <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                 <p className="text-xs font-bold text-emerald-800 leading-tight">
+                   Wait for 15 seconds, then go to the counter and tell them your token number.
+                 </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
