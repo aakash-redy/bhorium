@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Pure Orange & White Theme */
+    --background: 210 20% 98%; /* Soft off-white #F8FAFC */
+    --foreground: 222 47% 11%; /* Slate 950 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Brand Orange */
+    --primary: 24 95% 53%; 
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 24 95% 97%; /* Very soft orange tint */
+    --secondary-foreground: 24 95% 30%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 24 95% 53%;
+
+    --radius: 1.25rem; /* Smoother, rounder corners */
+
+    /* Bismuth Node A Palette */
+    --bismuth-navy: 222 47% 11%;
+    --bismuth-orange: 24 95% 53%;
+    --bismuth-gold: 36 90% 55%;
+    --bismuth-slate: 217 33% 17%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-orange-100 selection:text-orange-900;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  /* The "Engine Room" Background for Admin Portal */
+  .admin-terminal-bg {
+    background-color: hsl(222 47% 11%);
+    background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+    background-size: 32px 32px;
+  }
+
+  /* Bismuth Brand Gradients */
+  .bismuth-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(24 95% 53%),
+      hsl(16 85% 50%),
+      hsl(36 90% 55%)
+    );
+  }
+
+  .bismuth-gradient-text {
+    background: linear-gradient(
+      135deg,
+      hsl(24 95% 53%),
+      hsl(16 85% 50%),
+      hsl(36 90% 55%)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Custom UI Utilities */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .font-mono-display {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  .shadow-bismuth {
+    box-shadow: 0 20px 40px -15px rgba(249, 115, 22, 0.15);
+  }
+}
