@@ -3,7 +3,7 @@ import {
   Clock, Trash2, RefreshCw, ChefHat, Coffee, X, Search, 
   BarChart3, TrendingUp, AlertTriangle, Plus, Power, 
   User, Pencil, Check, Lock, ChevronRight, Settings,
-  Printer, CreditCard, CheckCircle2, Key, Archive, ChevronDown, ChevronUp
+  Printer, CreditCard, CheckCircle2, Key, Archive, ChevronDown, ChevronUp, Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase"; 
@@ -45,7 +45,7 @@ interface AdminPortalProps {
 
 const PASSCODE = import.meta.env.VITE_ADMIN_PIN || "cravin123"; 
 const RECOVERY_KEY = import.meta.env.VITE_RECOVERY_KEY || "cravin-admin-reset";
-const CATEGORIES = ["Daily Specials", "Chai", "Coffee", "Snacks", "Cakes", "Coolers", "Milkshakes"];
+
 const cx = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(" ");
 
 // --- UI COMPONENTS ---
@@ -84,6 +84,12 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   const [orders, setOrders] = useState<Order[]>([]);
   const [archivedOrders, setArchivedOrders] = useState<Order[]>([]);
   const [localMenuItems, setLocalMenuItems] = useState<MenuItem[]>([]);
+  
+  // 🚀 NEW: Dynamic Categories State
+  const [categories, setCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem("bismuth_categories");
+    return saved ? JSON.parse(saved) : ["Daily Specials", "Noodles", "Manchurian", "Fried Rice", "Starters", "Biryani", "Coolers", "Snacks"];
+  });
 
   // UI State
   const [activeTab, setActiveTab] = useState<'orders' | 'records' | 'menu' | 'settings'>('orders');
@@ -100,7 +106,10 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   // Menu Manager State
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItem, setNewItem] = useState({ name: "", price: "", category: "Chai", is_veg: true });
+  const [isManagingCategories, setIsManagingCategories] = useState(false);
+  const [newCatInput, setNewCatInput] = useState("");
+  
+  const [newItem, setNewItem] = useState({ name: "", price: "", category: "Noodles", is_veg: true });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -109,6 +118,11 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   // Bluetooth Printer
   const [isPrinterReady, setIsPrinterReady] = useState(false);
   const printerCharacteristic = useRef<any>(null);
+
+  // Persistence for Categories
+  useEffect(() => {
+    localStorage.setItem("bismuth_categories", JSON.stringify(categories));
+  }, [categories]);
 
   // --- DATA FETCHING ---
   const fetchOrders = async () => {
@@ -335,9 +349,21 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
       alert("Error adding item: " + error.message);
     } else {
       setIsAddingItem(false); 
-      setNewItem({ name: "", price: "", category: "Chai", is_veg: true }); 
+      setNewItem({ name: "", price: "", category: categories[0] || "Noodles", is_veg: true }); 
       fetchMenu(); 
     }
+  };
+
+  const handleAddCategory = () => {
+    if (!newCatInput) return;
+    if (categories.includes(newCatInput)) return alert("Category already exists");
+    setCategories([...categories, newCatInput]);
+    setNewCatInput("");
+  };
+
+  const removeCategory = (cat: string) => {
+    if (cat === "Daily Specials") return alert("Cannot delete essential category");
+    setCategories(categories.filter(c => c !== cat));
   };
 
   const startEditingPrice = (item: MenuItem) => {
@@ -656,7 +682,35 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
             <div className="sticky top-[180px] z-30 bg-slate-50/95 backdrop-blur-sm py-2">
               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" /><input type="text" placeholder="Search menu..." value={menuSearchQuery} onChange={(e) => setMenuSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border-none bg-white shadow-sm font-bold outline-none" /></div>
             </div>
-            <button onClick={() => setIsAddingItem(!isAddingItem)} className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95"><Plus className="w-5 h-5" /> {isAddingItem ? "Cancel" : "Add New Item"}</button>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setIsAddingItem(!isAddingItem)} className="py-4 bg-slate-900 text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95"><Plus className="w-5 h-5" /> {isAddingItem ? "Cancel Item" : "Add Item"}</button>
+              <button onClick={() => setIsManagingCategories(!isManagingCategories)} className="py-4 bg-white border-2 border-slate-100 text-slate-900 font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-sm"><Layers className="w-5 h-5" /> Categories</button>
+            </div>
+
+            {/* 🚀 CATEGORY MANAGER */}
+            <AnimatePresence>
+              {isManagingCategories && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="bg-slate-900 p-6 rounded-[2rem] text-white space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Add New Category</h3>
+                    <div className="flex gap-2">
+                      <input value={newCatInput} onChange={e => setNewCatInput(e.target.value)} placeholder="Category Name" className="flex-1 bg-slate-800 p-3 rounded-xl font-bold outline-none border border-slate-700 focus:border-emerald-500" />
+                      <button onClick={handleAddCategory} className="bg-emerald-500 text-slate-950 p-3 rounded-xl font-black"><Plus className="w-6 h-6" /></button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {categories.map(cat => (
+                        <div key={cat} className="bg-slate-800 pl-3 pr-1 py-1 rounded-lg flex items-center gap-2 border border-slate-700">
+                          <span className="text-xs font-bold">{cat}</span>
+                          <button onClick={() => removeCategory(cat)} className="p-1 hover:bg-red-500 rounded transition-colors"><X className="w-3 h-3" /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <AnimatePresence>
               {isAddingItem && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} className="overflow-hidden">
@@ -665,7 +719,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                     <div className="flex gap-4">
                       <input type="number" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} placeholder="Price" className="w-full bg-slate-50 p-3 rounded-xl font-bold outline-none flex-1" />
                       <select value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} className="bg-slate-50 p-3 rounded-xl font-bold outline-none flex-1">
-                        {CATEGORIES.map(cat => <option key={cat}>{cat}</option>)}
+                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </div>
                     

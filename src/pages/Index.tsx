@@ -25,6 +25,9 @@ interface CartItem {
   instructions?: string;
 }
 
+// 🚀 NEW: Fixed Canteen Category Order
+const CANTEEN_ORDER = ["Daily Specials", "Noodles", "Manchurian", "Fried Rice", "Starters", "Biryani", "Coolers", "Snacks"];
+
 // ==========================================
 // INLINE COMPONENT: Category Navigation
 // ==========================================
@@ -226,7 +229,6 @@ export default function Index() {
   const [isVegOnlyMode, setIsVegOnlyMode] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  // 🚀 UPDATE: Added total to the activeOrder state structure
   const [activeOrder, setActiveOrder] = useState<{ id: string; token: number; name: string; total?: number } | null>(null);
 
   useEffect(() => {
@@ -286,10 +288,18 @@ export default function Index() {
     if (menuItems.length === 0) return ["All"];
     const filtered = menuItems.filter(i => (i.name?.toLowerCase().includes(searchQuery.toLowerCase()) || i.description?.toLowerCase().includes(searchQuery.toLowerCase())));
     const uniqueCats = [...new Set(filtered.map(i => i.category))];
-    const PRIORITY_CAT = "Daily Specials";
-    const hasPriority = uniqueCats.includes(PRIORITY_CAT);
-    const otherCats = uniqueCats.filter(c => c !== PRIORITY_CAT).sort(); 
-    return hasPriority ? ["All", PRIORITY_CAT, ...otherCats] : ["All", ...otherCats];
+    
+    // 🚀 NEW: Dynamic Sorting based on Canteen Priorities
+    const sorted = uniqueCats.sort((a, b) => {
+      const indexA = CANTEEN_ORDER.indexOf(a);
+      const indexB = CANTEEN_ORDER.indexOf(b);
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    return ["All", ...sorted];
   }, [menuItems, searchQuery]);
 
   const handleCategoryClick = (category: string) => {
@@ -340,7 +350,6 @@ export default function Index() {
       setCartItems([]);
       setIsCartOpen(false);
 
-      // 🚀 UPDATE: Saving the totalAmount in memory
       const orderData = { id: data.id, token: finalToken, name: customerName, total: totalAmount };
       localStorage.setItem('bismuth_active_order', JSON.stringify(orderData));
       setActiveOrder(orderData);
@@ -427,7 +436,6 @@ export default function Index() {
 
       <div className="p-4 space-y-8 mt-2 min-h-[50vh]">
         
-        {/* 🚀 THE UPDATED ACTIVE ORDER BANNER (Total Cost + Instructions) */}
         <AnimatePresence>
           {activeOrder && (
             <motion.div 
