@@ -3,7 +3,7 @@ import {
   Clock, Trash2, RefreshCw, ChefHat, Coffee, X, Search, 
   BarChart3, TrendingUp, AlertTriangle, Plus, Power, 
   User, Pencil, Check, Lock, ChevronRight, Settings,
-  Printer, CreditCard, CheckCircle2, Key, Archive, ChevronDown, ChevronUp, Layers
+  Printer, CreditCard, CheckCircle2, Key, Archive, ChevronDown, ChevronUp, Layers, Menu
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase"; 
@@ -71,7 +71,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 // --- MAIN COMPONENT ---
 export default function AdminPortal({ onExit = () => window.history.back() }: AdminPortalProps) {
-  
+
   // Auth & Recovery State
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem("cravin_admin_session") === "active");
   const [inputPasscode, setInputPasscode] = useState("");
@@ -79,13 +79,11 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   const [isForgotMode, setIsForgotMode] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState("");
   const [newForgotPasscode, setNewForgotPasscode] = useState("");
-  
+
   // Data State
   const [orders, setOrders] = useState<Order[]>([]);
   const [archivedOrders, setArchivedOrders] = useState<Order[]>([]);
   const [localMenuItems, setLocalMenuItems] = useState<MenuItem[]>([]);
-  
-  // 🚀 NEW: Dynamic Categories State
   const [categories, setCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem("bismuth_categories");
     return saved ? JSON.parse(saved) : ["Daily Specials", "Noodles", "Manchurian", "Fried Rice", "Starters", "Biryani", "Coolers", "Snacks"];
@@ -93,11 +91,12 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   // UI State
   const [activeTab, setActiveTab] = useState<'orders' | 'records' | 'menu' | 'settings'>('orders');
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); // 🚀 NEW: Hamburger menu state
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [filter, setFilter] = useState<string>('all');
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
-  
+
   // Modals & Popups
   const [showEndDayReport, setShowEndDayReport] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
@@ -108,7 +107,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [newCatInput, setNewCatInput] = useState("");
-  
   const [newItem, setNewItem] = useState({ name: "", price: "", category: "Noodles", is_veg: true });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState("");
@@ -190,7 +188,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
     if (activeTab === 'records' && isAuthenticated) fetchArchivedOrders();
   }, [activeTab, isAuthenticated]);
 
-  // --- MUTE LOGIC (SUPABASE DRIVEN) ---
   const isMuted = useMemo(() => {
     if (!muteUntil) return false;
     return new Date(muteUntil) > new Date();
@@ -199,9 +196,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   const handleMutePopups = async () => {
     const tomorrow = new Date();
     tomorrow.setHours(tomorrow.getHours() + 24);
-    
     const { error } = await supabase.from('restaurants').update({ mute_until: tomorrow.toISOString() }).eq('id', 1);
-    
     if (!error) {
       setMuteUntil(tomorrow.toISOString());
       if (showPrintConfirm) {
@@ -213,32 +208,21 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
     }
   };
 
-  // --- ACTIONS ---
   const handleUpdateStatus = async (id: string, newStatus: Order['status']) => {
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id);
-    if (error) {
-      console.error("Failed to update status:", error.message);
-      alert("Error updating order: " + error.message); 
-    } else {
-      fetchOrders();
-    }
+    if (error) alert("Error updating order: " + error.message); 
+    else fetchOrders();
   };
 
   const handleDeleteOrder = async (id: string) => {
     const { error } = await supabase.from('orders').delete().eq('id', id);
-    if (error) {
-      alert("Error deleting order: " + error.message);
-    } else {
-      fetchOrders();
-    }
+    if (error) alert("Error deleting order: " + error.message);
+    else fetchOrders();
   };
 
   const handlePrintAction = (order: Order) => {
-    if (isMuted) {
-      handleConfirmAndPrint(order); 
-    } else {
-      setShowPrintConfirm(order);   
-    }
+    if (isMuted) handleConfirmAndPrint(order); 
+    else setShowPrintConfirm(order);   
   };
 
   // --- AUTH ---
@@ -345,9 +329,8 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
     if (!newItem.name || !newItem.price) return alert("Enter Name & Price");
     const itemPayload = { name: newItem.name, price: parseInt(newItem.price), category: newItem.category, is_veg: newItem.is_veg, available: true };
     const { error } = await supabase.from('menu_items').insert([itemPayload]);
-    if (error) {
-      alert("Error adding item: " + error.message);
-    } else {
+    if (error) alert("Error adding item: " + error.message);
+    else {
       setIsAddingItem(false); 
       setNewItem({ name: "", price: "", category: categories[0] || "Noodles", is_veg: true }); 
       fetchMenu(); 
@@ -377,44 +360,33 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
     setLocalMenuItems(prev => prev.map(item => item.id === id ? { ...item, price: newPrice } : item));
     setEditingPriceId(null);
     const { error } = await supabase.from('menu_items').update({ price: newPrice }).eq('id', id);
-    if (error) {
-      alert("Error saving price: " + error.message);
-      fetchMenu(); 
-    }
+    if (error) { alert("Error saving price: " + error.message); fetchMenu(); }
   };
 
   const toggleAvailability = async (id: string, current: boolean) => {
     setLocalMenuItems(prev => prev.map(item => item.id === id ? { ...item, available: !current } : item));
     const { error } = await supabase.from('menu_items').update({ available: !current }).eq('id', id);
-    if (error) {
-      alert("Error updating availability: " + error.message);
-      fetchMenu(); 
-    }
+    if (error) { alert("Error updating availability: " + error.message); fetchMenu(); }
   };
 
   const toggleVegStatus = async (id: string, current: boolean) => {
     setLocalMenuItems(prev => prev.map(item => item.id === id ? { ...item, is_veg: !current } : item));
     const { error } = await supabase.from('menu_items').update({ is_veg: !current }).eq('id', id);
-    if (error) {
-      alert("Error updating veg status: " + error.message);
-      fetchMenu(); 
-    }
+    if (error) { alert("Error updating veg status: " + error.message); fetchMenu(); }
   };
 
   const deleteMenuItem = async (id: string) => {
     if (!window.confirm("Delete this item?")) return;
     setLocalMenuItems(prev => prev.filter(i => i.id !== id)); 
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
-    if (error) {
-      alert("Error deleting item: " + error.message);
-      fetchMenu(); 
-    }
+    if (error) { alert("Error deleting item: " + error.message); fetchMenu(); }
   };
 
   // --- COMPUTED DATA ---
   const filteredOrders = useMemo(() => orders.filter(o => 
     (filter === 'all' || o.status === filter) && 
-    (o.customerName || "").toLowerCase().includes(orderSearchQuery.toLowerCase())
+    (o.customerName?.toLowerCase().includes(orderSearchQuery.toLowerCase()) || 
+     o.tokenNumber?.toString().includes(orderSearchQuery))
   ), [orders, filter, orderSearchQuery]);
 
   const processedMenuItems = useMemo(() => {
@@ -441,7 +413,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   }, [archivedOrders]);
 
   const totalRevenue = orders.reduce((sum, o) => o.status !== 'pending' ? sum + (o.total || 0) : sum, 0);
-  
+
   const endDayStats = useMemo(() => {
     const itemCounts: Record<string, number> = {};
     orders.forEach(order => {
@@ -458,7 +430,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   const handleEndDay = async () => {
     const confirmRefresh = window.confirm("Do you want to end the day and reset all earnings to zero? This will clear today's orders from the screen, but keep them in the Records tab.");
-    
     if (!confirmRefresh) return; 
 
     const orderIds = orders.map(o => o.id);
@@ -466,15 +437,12 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
     if (orderIds.length > 0) {
       const { error } = await supabase.from('orders').update({ status: 'archived', archived_at: now }).in('id', orderIds);
-      if (error) {
-        alert("Failed to archive orders: " + error.message);
-        return;
-      }
+      if (error) return alert("Failed to archive orders: " + error.message);
     }
 
     await supabase.from('restaurants').update({ mute_until: null }).eq('id', 1);
     setMuteUntil(null);
-    
+
     fetchOrders(); 
     setShowEndDayReport(false);
     alert("Day Closed! Earnings have been reset to ₹0. Orders moved to Records.");
@@ -482,6 +450,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   // --- SCREENS ---
   if (!isAuthenticated) {
+    // ... Keeping exact same Auth screen code ...
     if (isForgotMode) {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white font-sans">
@@ -518,7 +487,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
             <input type="password" value={inputPasscode} onChange={(e) => setInputPasscode(e.target.value)} className={cx("w-full bg-slate-900 border-2 rounded-2xl py-4 px-6 text-center text-xl font-bold tracking-widest outline-none transition-all placeholder:text-slate-800", authError ? "border-red-500 animate-pulse text-red-500" : "border-slate-800 focus:border-emerald-500 text-white")} placeholder="Enter Password" autoFocus />
             <button type="submit" className="w-full bg-emerald-500 text-slate-950 font-black py-4 rounded-2xl active:scale-95 transition-transform flex items-center justify-center gap-2 hover:bg-emerald-400">UNLOCK <ChevronRight className="w-5 h-5" /></button>
           </form>
-          
+
           <div className="flex justify-between mt-6 px-2">
             <button onClick={() => setIsForgotMode(true)} className="text-slate-500 text-xs font-bold hover:text-amber-400 transition-colors">Forgot Passcode?</button>
             <button onClick={onExit} className="text-slate-500 text-xs font-bold hover:text-white transition-colors">Close Portal</button>
@@ -530,95 +499,152 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 font-sans">
-      
-      {/* STICKY HEADER */}
-      <div className="bg-slate-900 text-white p-6 sticky top-0 z-40 shadow-xl rounded-b-[2rem]">
+
+      {/* 🚀 REFACTORED HEADER (No longer sticky top-0) */}
+      <div className="bg-slate-900 text-white p-6 rounded-b-[2rem] shadow-xl relative z-20">
         <div className="max-w-3xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-start mb-2">
             <div className="flex items-center gap-4">
-              <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><Power className="w-6 h-6 text-slate-400 hover:text-white" /></button>
+              <button onClick={() => setIsNavMenuOpen(!isNavMenuOpen)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors">
+                {isNavMenuOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+              </button>
               <div>
-                <h1 className="text-2xl font-black tracking-tight">Admin Portal</h1>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                <h1 className="text-xl font-black tracking-tight">Admin Portal</h1>
+                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
                   <span className={`w-2 h-2 rounded-full ${isPrinterReady ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`}/> 
                   {isPrinterReady ? "Printer Ready" : "Printer Offline"}
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-400 font-bold uppercase">Sales Today</p>
-              <p className="text-3xl font-black text-emerald-400">₹{totalRevenue}</p>
+            <div className="flex gap-4 items-center">
+              <div className="text-right">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Sales Today</p>
+                <p className="text-xl font-black text-emerald-400">₹{totalRevenue}</p>
+              </div>
+              <button onClick={handleLogout} className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors hidden sm:block">
+                <Power className="w-5 h-5 text-red-400" />
+              </button>
             </div>
           </div>
-          
+
+          {/* 🚀 HAMBURGER DROPDOWN MENU */}
+          <AnimatePresence>
+            {isNavMenuOpen && (
+              <motion.div initial={{ height: 0, opacity: 0, marginTop: 0 }} animate={{ height: 'auto', opacity: 1, marginTop: 16 }} exit={{ height: 0, opacity: 0, marginTop: 0 }} className="overflow-hidden">
+                <div className="flex flex-col gap-2 bg-slate-800/50 p-2 rounded-2xl backdrop-blur-sm border border-slate-700">
+                  {[
+                    { id: 'orders', icon: ChefHat, label: 'Orders', count: orders.filter(o => o.status === 'pending').length },
+                    { id: 'records', icon: Archive, label: 'Records', count: 0 },
+                    { id: 'menu', icon: Coffee, label: 'Menu', count: 0 },
+                    { id: 'settings', icon: Settings, label: 'Settings', count: 0 }
+                  ].map(tab => (
+                    <button 
+                      key={tab.id}
+                      onClick={() => { setActiveTab(tab.id as any); setIsNavMenuOpen(false); }} 
+                      className={cx("flex items-center justify-between w-full p-4 rounded-xl font-bold text-sm transition-all", activeTab === tab.id ? "bg-white text-slate-900 shadow-lg" : "text-slate-300 hover:bg-slate-700")}
+                    >
+                      <div className="flex items-center gap-3"><tab.icon className="w-5 h-5" /> {tab.label}</div>
+                      {tab.count > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{tab.count}</span>}
+                    </button>
+                  ))}
+                  {/* Mobile logout inside menu */}
+                  <button onClick={handleLogout} className="flex sm:hidden items-center gap-3 w-full p-4 rounded-xl font-bold text-sm text-red-400 hover:bg-red-500/10 transition-all">
+                    <Power className="w-5 h-5" /> Logout Admin
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {!isPrinterReady && (
-            <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex justify-between items-center">
+            <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex justify-between items-center">
               <span className="text-red-400 text-xs font-bold">Connect thermal printer for receipts</span>
               <button onClick={initializePrinter} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-black">LINK NOW</button>
             </div>
           )}
-
-          <div className="flex gap-2 bg-slate-800/50 p-1.5 rounded-2xl backdrop-blur-sm overflow-x-auto scrollbar-hide">
-            <button onClick={() => setActiveTab('orders')} className={cx("flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 min-w-fit", activeTab === 'orders' ? "bg-white text-slate-900 shadow-lg" : "text-slate-400")}><ChefHat className="w-4 h-4" /> Orders {orders.filter(o => o.status === 'pending').length > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 rounded-full">{orders.filter(o => o.status === 'pending').length}</span>}</button>
-            <button onClick={() => setActiveTab('records')} className={cx("flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 min-w-fit", activeTab === 'records' ? "bg-white text-slate-900 shadow-lg" : "text-slate-400")}><Archive className="w-4 h-4" /> Records</button>
-            <button onClick={() => setActiveTab('menu')} className={cx("flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 min-w-fit", activeTab === 'menu' ? "bg-white text-slate-900 shadow-lg" : "text-slate-400")}><Coffee className="w-4 h-4" /> Menu</button>
-            <button onClick={() => setActiveTab('settings')} className={cx("flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 min-w-fit", activeTab === 'settings' ? "bg-white text-slate-900 shadow-lg" : "text-slate-400")}><Settings className="w-4 h-4" /> Settings</button>
-          </div>
         </div>
       </div>
 
       <div className="p-4 max-w-3xl mx-auto space-y-6">
-        
+
         {/* ================= 🚀 ORDERS TAB ================= */}
         {activeTab === 'orders' && (
           <>
-            <div className="space-y-4 sticky top-[180px] z-30 bg-slate-50/95 backdrop-blur-sm py-2">
-              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" /><input type="text" placeholder="Search customer or token..." value={orderSearchQuery} onChange={(e) => setOrderSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border-none bg-white shadow-sm font-bold outline-none" /></div>
-              <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+            {/* 🚀 STICKY SEARCH & FILTERS (Restricted to Numbers) */}
+            <div className="space-y-3 sticky top-2 z-30 bg-slate-50/95 backdrop-blur-md py-3 rounded-2xl shadow-sm border border-slate-200">
+              <div className="relative px-4">
+                <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  inputMode="numeric"
+                  placeholder="Search token number..." 
+                  value={orderSearchQuery} 
+                  onChange={(e) => setOrderSearchQuery(e.target.value.replace(/\D/g, ''))} // Strictly numbers
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-100 bg-white shadow-sm font-bold outline-none focus:border-emerald-500 transition-colors" 
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto px-4 pb-1 hide-scrollbar">
                 {['all', 'pending', 'paid', 'preparing', 'completed'].map((f) => (
-                  <button key={f} onClick={() => setFilter(f)} className={cx("px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider border transition-all whitespace-nowrap", filter === f ? "bg-slate-900 text-white" : "bg-white text-slate-500")}>{f}</button>
+                  <button key={f} onClick={() => setFilter(f)} className={cx("px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all whitespace-nowrap", filter === f ? "bg-slate-900 text-white border-slate-900 shadow-md" : "bg-white text-slate-500 border-slate-200")}>{f}</button>
                 ))}
               </div>
             </div>
-            
+
             <div className="space-y-4 pb-24">
               <AnimatePresence>
                 {filteredOrders.length === 0 && <div className="text-center py-20 text-slate-400 font-bold uppercase text-xs">No orders found</div>}
                 {filteredOrders.map((order) => (
-                  <motion.div layout key={order.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
+                  <motion.div layout key={order.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-200 relative overflow-hidden group">
+                    {/* Status side border */}
                     <div className={cx("absolute left-0 top-0 bottom-0 w-1.5", order.status === 'completed' ? "bg-emerald-500" : order.status === 'preparing' ? "bg-amber-400" : order.status === 'paid' ? "bg-blue-400" : "bg-slate-200")} />
-                    <div className="pl-2">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-xl font-black text-slate-900">{order.customerName}</h3>
-                            <StatusBadge status={order.status} />
-                          </div>
-                          <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {order.timestamp} • <span className="text-orange-500 font-black ml-1">#{order.tokenNumber || "---"}</span>
-                          </p>
+                    
+                    {/* 🚀 COMPACT ORDER CARD CONTENT */}
+                    <div className="pl-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                           <h2 className="text-3xl font-black text-slate-900">#{order.tokenNumber || "---"}</h2>
+                           <StatusBadge status={order.status} />
                         </div>
-                        <p className="text-2xl font-black text-slate-900">₹{order.total}</p>
+                        <div className="text-right">
+                           <p className="text-2xl font-black text-emerald-500">₹{order.total}</p>
+                           <p className="text-[10px] font-bold text-slate-400 flex items-center justify-end gap-1 mt-1">
+                              <Clock className="w-3 h-3" /> {order.timestamp}
+                           </p>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-3 mb-6 bg-slate-50/50 p-4 rounded-2xl">
+
+                      <div className="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                         <span className="font-bold text-slate-700">{order.customerName}</span>
+                         <span className="text-xs font-black text-slate-400 bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">{order.items?.length || 0} Items</span>
+                      </div>
+
+                      {/* Small inline items breakdown to save space */}
+                      <div className="space-y-1 mb-4">
                         {order.items?.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-start text-sm">
-                            <div className="flex gap-3">
-                              <span className="font-black text-slate-400 bg-white w-6 h-6 rounded flex items-center justify-center text-xs">{item.quantity}</span>
-                              <span className="font-bold text-slate-700">{item.item_name}</span>
+                          <div key={idx} className="flex justify-between items-center text-xs px-1">
+                            <div className="flex gap-2 items-center">
+                              <span className="font-black text-slate-400">{item.quantity}x</span>
+                              <span className="font-bold text-slate-600">{item.item_name}</span>
                             </div>
-                            <span className="font-bold text-slate-400">₹{(item.price_at_time_of_order || 0) * item.quantity}</span>
                           </div>
                         ))}
                       </div>
 
-                      {/* 🚀 WORKFLOW BUTTONS */}
-                      <div className="grid grid-cols-2 gap-3">
-                        {order.status === 'pending' && <button onClick={() => handleUpdateStatus(order.id, 'paid')} className="col-span-2 bg-emerald-500 text-white py-3.5 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"><CreditCard className="w-4 h-4"/> VERIFY PAYMENT</button>}
-                        {order.status === 'paid' && <button onClick={() => handlePrintAction(order)} className="col-span-2 bg-slate-900 text-white py-3.5 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2 shadow-lg"><Printer className="w-4 h-4"/> PRINT BILL</button>}
-                        {order.status === 'preparing' && <button onClick={() => handleUpdateStatus(order.id, 'completed')} className="col-span-2 bg-blue-500 text-white py-3.5 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4"/> ORDER READY</button>}
-                        {order.status !== 'completed' && <button onClick={() => setOrderToCancel(order.id)} className="col-span-2 text-[10px] font-bold text-slate-300 py-2 hover:text-red-500 transition-colors uppercase tracking-widest"><Trash2 className="w-3 h-3 inline mr-1" /> Delete Record</button>}
+                      {/* 🚀 WORKFLOW BUTTONS (Massive Primary Action, Small side-by-side delete) */}
+                      <div className="flex gap-2">
+                        {order.status === 'pending' && <button onClick={() => handleUpdateStatus(order.id, 'paid')} className="flex-1 bg-emerald-500 text-white py-4 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 text-lg"><CreditCard className="w-5 h-5"/> VERIFY PAYMENT</button>}
+                        
+                        {order.status === 'paid' && (
+                           <button onClick={() => handlePrintAction(order)} className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2 shadow-lg text-lg"><Printer className="w-5 h-5"/> PRINT BILL</button>
+                        )}
+
+                        {order.status === 'preparing' && <button onClick={() => handleUpdateStatus(order.id, 'completed')} className="flex-1 bg-blue-500 text-white py-4 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2 text-lg"><CheckCircle2 className="w-5 h-5"/> ORDER READY</button>}
+                        
+                        {order.status !== 'completed' && (
+                          <button onClick={() => setOrderToCancel(order.id)} className="w-16 bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center border border-red-100">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -628,7 +654,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
           </>
         )}
 
-        {/* ================= 🚀 RECORDS TAB (ARCHIVES) ================= */}
+        {/* ... Rest of Tabs (Records, Menu, Settings, Modals) remain unchanged structurally ... */}
         {activeTab === 'records' && (
           <div className="space-y-4 pb-20">
             {groupedArchives.length === 0 ? (
@@ -639,7 +665,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                 const displayDate = group.date !== 'Unknown Date' 
                   ? new Date(group.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) 
                   : group.date;
-                  
+
                 return (
                   <motion.div layout key={idx} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
                     <button onClick={() => setExpandedRecord(isExpanded ? null : group.date)} className="w-full p-6 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -679,16 +705,16 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
         {/* ================= 🚀 MENU TAB ================= */}
         {activeTab === 'menu' && (
           <div className="space-y-6 pb-20">
-            <div className="sticky top-[180px] z-30 bg-slate-50/95 backdrop-blur-sm py-2">
+            <div className="sticky top-[80px] z-30 bg-slate-50/95 backdrop-blur-sm py-2">
               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" /><input type="text" placeholder="Search menu..." value={menuSearchQuery} onChange={(e) => setMenuSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border-none bg-white shadow-sm font-bold outline-none" /></div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => setIsAddingItem(!isAddingItem)} className="py-4 bg-slate-900 text-white font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95"><Plus className="w-5 h-5" /> {isAddingItem ? "Cancel Item" : "Add Item"}</button>
               <button onClick={() => setIsManagingCategories(!isManagingCategories)} className="py-4 bg-white border-2 border-slate-100 text-slate-900 font-black rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-sm"><Layers className="w-5 h-5" /> Categories</button>
             </div>
 
-            {/* 🚀 CATEGORY MANAGER */}
+            {/* CATEGORY MANAGER */}
             <AnimatePresence>
               {isManagingCategories && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
@@ -722,7 +748,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                         {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
                     </div>
-                    
+
                     <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <div>
                         <p className="text-xs font-black text-slate-800 uppercase">Item Type</p>
@@ -730,23 +756,23 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                       </div>
                       <ToggleSwitch checked={newItem.is_veg} onChange={(c) => setNewItem({...newItem, is_veg: c})} />
                     </div>
-                    
+
                     <button onClick={handleAddItem} className="w-full py-4 bg-emerald-500 text-white font-black rounded-xl active:scale-95">SAVE ITEM</button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-            
+
             <div className="space-y-3">
               {processedMenuItems.map((item) => (
                 <motion.div layout key={item.id} className={cx("bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center transition-colors relative overflow-hidden", item.available ? "border-slate-100" : "border-slate-100 bg-slate-50/50", item.category === 'Daily Specials' && "border-amber-200 bg-amber-50/30")}>
                   {item.category === 'Daily Specials' && <div className="absolute top-0 left-0 bg-amber-400 text-amber-900 text-[8px] font-black px-2 py-0.5">SPECIAL</div>}
                   <div className="flex items-center gap-4">
-                    
+
                     <div className={cx("w-4 h-4 border-2 flex items-center justify-center p-[2px]", item.is_veg ? "border-green-600" : "border-red-600")}>
                       <div className={cx("w-full h-full rounded-full", item.is_veg ? "bg-green-600" : "bg-red-600")} />
                     </div>
-                    
+
                     <div className="mt-1">
                       <h4 className={cx("font-bold text-lg leading-tight", !item.available && "text-slate-400 line-through")}>{item.name}</h4>
                       <div className="flex items-center gap-2 mt-1">
@@ -759,7 +785,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    
+
                     <div className="flex flex-col items-center gap-1">
                       <button 
                         onClick={() => toggleVegStatus(item.id, item.is_veg)} 
