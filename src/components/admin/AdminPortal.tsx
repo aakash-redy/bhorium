@@ -91,7 +91,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   // UI State
   const [activeTab, setActiveTab] = useState<'orders' | 'records' | 'menu' | 'settings'>('orders');
-  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); // 🚀 NEW: Hamburger menu state
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false); 
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [filter, setFilter] = useState<string>('all');
@@ -450,7 +450,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
 
   // --- SCREENS ---
   if (!isAuthenticated) {
-    // ... Keeping exact same Auth screen code ...
     if (isForgotMode) {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white font-sans">
@@ -500,7 +499,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
   return (
     <div className="min-h-screen bg-slate-50 pb-20 font-sans">
 
-      {/* 🚀 REFACTORED HEADER (No longer sticky top-0) */}
+      {/* 🚀 MAIN HEADER */}
       <div className="bg-slate-900 text-white p-6 rounded-b-[2rem] shadow-xl relative z-20">
         <div className="max-w-3xl mx-auto">
           <div className="flex justify-between items-start mb-2">
@@ -547,7 +546,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                       {tab.count > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{tab.count}</span>}
                     </button>
                   ))}
-                  {/* Mobile logout inside menu */}
                   <button onClick={handleLogout} className="flex sm:hidden items-center gap-3 w-full p-4 rounded-xl font-bold text-sm text-red-400 hover:bg-red-500/10 transition-all">
                     <Power className="w-5 h-5" /> Logout Admin
                   </button>
@@ -570,8 +568,8 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
         {/* ================= 🚀 ORDERS TAB ================= */}
         {activeTab === 'orders' && (
           <>
-            {/* 🚀 STICKY SEARCH & FILTERS (Restricted to Numbers) */}
-            <div className="space-y-3 sticky top-2 z-30 bg-slate-50/95 backdrop-blur-md py-3 rounded-2xl shadow-sm border border-slate-200">
+            {/* 🚀 STATIC SEARCH & FILTERS (No longer sticky) */}
+            <div className="space-y-3 bg-white py-3 rounded-2xl shadow-sm border border-slate-200 mb-4">
               <div className="relative px-4">
                 <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
@@ -579,7 +577,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                   inputMode="numeric"
                   placeholder="Search token number..." 
                   value={orderSearchQuery} 
-                  onChange={(e) => setOrderSearchQuery(e.target.value.replace(/\D/g, ''))} // Strictly numbers
+                  onChange={(e) => setOrderSearchQuery(e.target.value.replace(/\D/g, ''))} 
                   className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-100 bg-white shadow-sm font-bold outline-none focus:border-emerald-500 transition-colors" 
                 />
               </div>
@@ -595,10 +593,8 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                 {filteredOrders.length === 0 && <div className="text-center py-20 text-slate-400 font-bold uppercase text-xs">No orders found</div>}
                 {filteredOrders.map((order) => (
                   <motion.div layout key={order.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-200 relative overflow-hidden group">
-                    {/* Status side border */}
                     <div className={cx("absolute left-0 top-0 bottom-0 w-1.5", order.status === 'completed' ? "bg-emerald-500" : order.status === 'preparing' ? "bg-amber-400" : order.status === 'paid' ? "bg-blue-400" : "bg-slate-200")} />
                     
-                    {/* 🚀 COMPACT ORDER CARD CONTENT */}
                     <div className="pl-3">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-3">
@@ -618,7 +614,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                          <span className="text-xs font-black text-slate-400 bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">{order.items?.length || 0} Items</span>
                       </div>
 
-                      {/* Small inline items breakdown to save space */}
                       <div className="space-y-1 mb-4">
                         {order.items?.map((item, idx) => (
                           <div key={idx} className="flex justify-between items-center text-xs px-1">
@@ -630,7 +625,6 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
                         ))}
                       </div>
 
-                      {/* 🚀 WORKFLOW BUTTONS (Massive Primary Action, Small side-by-side delete) */}
                       <div className="flex gap-2">
                         {order.status === 'pending' && <button onClick={() => handleUpdateStatus(order.id, 'paid')} className="flex-1 bg-emerald-500 text-white py-4 rounded-xl font-black active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 text-lg"><CreditCard className="w-5 h-5"/> VERIFY PAYMENT</button>}
                         
@@ -654,7 +648,7 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
           </>
         )}
 
-        {/* ... Rest of Tabs (Records, Menu, Settings, Modals) remain unchanged structurally ... */}
+        {/* ================= 🚀 RECORDS TAB ================= */}
         {activeTab === 'records' && (
           <div className="space-y-4 pb-20">
             {groupedArchives.length === 0 ? (
@@ -705,8 +699,12 @@ export default function AdminPortal({ onExit = () => window.history.back() }: Ad
         {/* ================= 🚀 MENU TAB ================= */}
         {activeTab === 'menu' && (
           <div className="space-y-6 pb-20">
-            <div className="sticky top-[80px] z-30 bg-slate-50/95 backdrop-blur-sm py-2">
-              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" /><input type="text" placeholder="Search menu..." value={menuSearchQuery} onChange={(e) => setMenuSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl border-none bg-white shadow-sm font-bold outline-none" /></div>
+            {/* 🚀 STATIC SEARCH (No longer sticky) */}
+            <div className="bg-white py-3 rounded-2xl shadow-sm border border-slate-200 mb-4">
+              <div className="relative px-4">
+                <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input type="text" placeholder="Search menu..." value={menuSearchQuery} onChange={(e) => setMenuSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-100 bg-white shadow-sm font-bold outline-none focus:border-emerald-500" />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
