@@ -139,8 +139,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/order-success" element={<OrderSuccess />} />
           
-          {/* Admin Portal Route */}
-          <Route path="/admin" element={<AdminPortal />} />
+          {/* 🚀 SECRET Admin Portal Route */}
+          <Route path="/jntuhcanteen123" element={<AdminPortal />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>
